@@ -132,7 +132,7 @@ struct ExpenseFormView: View {
         .onChange(of: categories) { reconcileCategory() }
         .onChange(of: rateRequest, initial: true) { startRateLookup() }
         .onDisappear { rateTask?.cancel() }
-        .interactiveDismissDisabled(isSaving)
+        .savingDismissDisabled(isSaving)
         .sensoryFeedback(Haptics.saved, trigger: savedCount)
         .sensoryFeedback(Haptics.refused, trigger: refusedCount)
     }

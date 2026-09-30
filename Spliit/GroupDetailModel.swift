@@ -62,6 +62,11 @@ final class GroupDetailModel {
     private var nextCursor = 0
     private var nextSearchCursor = 0
     private var nextActivityCursor = 0
+    // A sentinel can reappear before its previous task unwinds. Allow that replacement read;
+    // only its ID may apply a page or clear the loading flag. Refreshing invalidates old pages.
+    private var expensesPageRequestID = UUID()
+    private var searchPageRequestID = UUID()
+    private var activityPageRequestID = UUID()
     private var searchRequestID = UUID()
     private static let pageSize = 20
 
@@ -270,11 +275,15 @@ final class GroupDetailModel {
     }
 
     private func loadFirstPage(using client: TRPCClient) async {
+        expensesPageRequestID = UUID()
+        isLoadingMore = false
         expensesLoad.begin()
         do {
             let response = try await client.call(
                 Spliit.expenses(groupId: groupID, cursor: 0, limit: Self.pageSize)
             )
+            expensesPageRequestID = UUID()
+            isLoadingMore = false
             expenses = withoutPendingDeletion(response.expenses)
             hasMoreExpenses = response.hasMore
             nextCursor = response.nextCursor
@@ -285,22 +294,26 @@ final class GroupDetailModel {
     }
 
     func loadNextPage(using client: TRPCClient) async {
-        guard hasMoreExpenses, !isLoadingMore else { return }
+        guard hasMoreExpenses, !Task.isCancelled else { return }
+        let requestID = UUID()
+        expensesPageRequestID = requestID
         isLoadingMore = true
-        defer { isLoadingMore = false }
+        defer { if expensesPageRequestID == requestID { isLoadingMore = false } }
 
         do {
             let response = try await client.call(
                 Spliit.expenses(groupId: groupID, cursor: nextCursor, limit: Self.pageSize)
             )
             try Task.checkCancellation()
+            guard expensesPageRequestID == requestID else { return }
             // Guard against a duplicate page if an expense was added while paging.
             let known = Set(expenses.map(\.id))
             expenses += withoutPendingDeletion(response.expenses).filter { !known.contains($0.id) }
             hasMoreExpenses = response.hasMore
             nextCursor = response.nextCursor
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError) else { return }
+            guard expensesPageRequestID == requestID,
+                  !Task.isCancelled, !(error is CancellationError) else { return }
             // Paging failures shouldn't replace what is already on screen.
             hasMoreExpenses = false
         }
@@ -488,11 +501,15 @@ final class GroupDetailModel {
     }
 
     private func loadFirstActivityPage(using client: TRPCClient) async {
+        activityPageRequestID = UUID()
+        isLoadingMoreActivities = false
         activitiesLoad.begin()
         do {
             let response = try await client.call(
                 Spliit.activities(groupId: groupID, cursor: 0, limit: Self.pageSize)
             )
+            activityPageRequestID = UUID()
+            isLoadingMoreActivities = false
             activities = response.activities
             hasMoreActivities = response.hasMore
             nextActivityCursor = response.nextCursor
@@ -503,9 +520,11 @@ final class GroupDetailModel {
     }
 
     func loadNextActivityPage(using client: TRPCClient) async {
-        guard hasMoreActivities, !isLoadingMoreActivities else { return }
+        guard hasMoreActivities, !Task.isCancelled else { return }
+        let requestID = UUID()
+        activityPageRequestID = requestID
         isLoadingMoreActivities = true
-        defer { isLoadingMoreActivities = false }
+        defer { if activityPageRequestID == requestID { isLoadingMoreActivities = false } }
 
         do {
             let response = try await client.call(
@@ -514,6 +533,7 @@ final class GroupDetailModel {
                 )
             )
             try Task.checkCancellation()
+            guard activityPageRequestID == requestID else { return }
             // The log grows at the top, so a page fetched after something new was recorded
             // repeats a row rather than skipping one. Same guard as the expense list.
             let known = Set(activities.map(\.id))
@@ -521,7 +541,8 @@ final class GroupDetailModel {
             hasMoreActivities = response.hasMore
             nextActivityCursor = response.nextCursor
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError) else { return }
+            guard activityPageRequestID == requestID,
+                  !Task.isCancelled, !(error is CancellationError) else { return }
             hasMoreActivities = false
         }
     }
@@ -562,6 +583,8 @@ final class GroupDetailModel {
             // the prompt rather than asking the server for the whole group again.
             searchResults = []
             hasMoreSearchResults = false
+            searchPageRequestID = UUID()
+            isLoadingMoreSearchResults = false
             searchLoad = LoadState()
             return
         }
@@ -572,6 +595,8 @@ final class GroupDetailModel {
         matching query: String,
         using client: TRPCClient
     ) async {
+        searchPageRequestID = UUID()
+        isLoadingMoreSearchResults = false
         let requestID = searchRequestID
         searchLoad.begin()
         do {
@@ -581,6 +606,8 @@ final class GroupDetailModel {
             // The field may have moved on while this was in flight; a stale page must not
             // become the answer to a question nobody asked.
             guard !Task.isCancelled, searchRequestID == requestID, filter == query else { return }
+            searchPageRequestID = UUID()
+            isLoadingMoreSearchResults = false
             searchResults = withoutPendingDeletion(response.expenses)
             hasMoreSearchResults = response.hasMore
             nextSearchCursor = response.nextCursor
@@ -594,9 +621,11 @@ final class GroupDetailModel {
     }
 
     func loadNextSearchPage(using client: TRPCClient) async {
-        guard let filter, hasMoreSearchResults, !isLoadingMoreSearchResults else { return }
+        guard let filter, hasMoreSearchResults, !Task.isCancelled else { return }
+        let requestID = UUID()
+        searchPageRequestID = requestID
         isLoadingMoreSearchResults = true
-        defer { isLoadingMoreSearchResults = false }
+        defer { if searchPageRequestID == requestID { isLoadingMoreSearchResults = false } }
 
         do {
             let response = try await client.call(
@@ -608,14 +637,15 @@ final class GroupDetailModel {
                 )
             )
             try Task.checkCancellation()
-            guard self.filter == filter else { return }
+            guard searchPageRequestID == requestID, self.filter == filter else { return }
             let known = Set(searchResults.map(\.id))
             searchResults += withoutPendingDeletion(response.expenses)
                 .filter { !known.contains($0.id) }
             hasMoreSearchResults = response.hasMore
             nextSearchCursor = response.nextCursor
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), self.filter == filter
+            guard searchPageRequestID == requestID,
+                  !Task.isCancelled, !(error is CancellationError), self.filter == filter
             else { return }
             hasMoreSearchResults = false
         }
