@@ -1,6 +1,13 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import SpliitCore
+#if os(Android)
+import SkipFuseUI
+#else
 import SwiftUI
+#endif
 
 /// Posts ``AnalyticsEvent`` to Plausible, and nothing else.
 ///
@@ -38,7 +45,11 @@ struct Analytics: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // Plausible rejects requests without one.
+        #if os(Android)
+        request.setValue("Spliit Android", forHTTPHeaderField: "User-Agent")
+        #else
         request.setValue("Spliit iOS", forHTTPHeaderField: "User-Agent")
+        #endif
         request.httpBody = try? JSONSerialization.data(withJSONObject: event.body)
 
         // Fire and forget: analytics must never delay or fail anything the user is doing.

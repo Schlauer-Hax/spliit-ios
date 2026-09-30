@@ -11,7 +11,7 @@ struct ExpenseRow: View {
     let payerPosition: Int
     let formatter: MoneyFormatter
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppTextSize private var dynamicTypeSize
 
     var body: some View {
         AdaptiveHStack(verticalAlignment: .top, spacing: 12) {
@@ -25,8 +25,15 @@ struct ExpenseRow: View {
                     // The glyph beside the title is the only place the category appears, and a
                     // picture cannot be read out. Hanging it here rather than on the icon keeps
                     // it to one element per row, and leaves the title's own label alone.
+                    #if os(iOS)
                     .accessibilityValue(categoryDescription)
                     .accessibilityHint(Text("Opens this expense for editing"))
+                    #else
+                    .accessibilityValue(Text(verbatim: [
+                        expense.category?.displayName,
+                        String(localized: "Opens this expense for editing"),
+                    ].compactMap { $0 }.joined(separator: ". ")))
+                    #endif
 
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     // Who paid, in the colour they have on the balances screen. The names are
@@ -59,16 +66,22 @@ struct ExpenseRow: View {
                     if expense.documentCount > 0 {
                         Image(systemName: "paperclip")
                             .accessibilityLabel(
-                                Text("\(expense.documentCount) documents attached")
+                                Text(verbatim: String(localized: "\(expense.documentCount) documents attached"))
                             )
                     }
                     Text(expense.expenseDate.formatted(date: .abbreviated, time: .omitted))
                 }
                 .font(.caption)
+                #if os(iOS)
                 .foregroundStyle(.tertiary)
+                #else
+                .foregroundStyle(.secondary)
+                #endif
             }
         }
+        #if os(iOS)
         .contentShape(.rect)
+        #endif
     }
 
     /// Empty rather than "Uncategorized" when the server sends no category: an accessibility
