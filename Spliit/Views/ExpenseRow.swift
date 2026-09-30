@@ -12,6 +12,7 @@ struct ExpenseRow: View {
     let formatter: MoneyFormatter
 
     @AppTextSize private var dynamicTypeSize
+    @Environment(\.locale) var locale
 
     var body: some View {
         AdaptiveHStack(verticalAlignment: .top, spacing: 12) {
@@ -69,7 +70,9 @@ struct ExpenseRow: View {
                                 Text(verbatim: String(localized: "\(expense.documentCount) documents attached"))
                             )
                     }
-                    Text(expense.expenseDate.formatted(date: .abbreviated, time: .omitted))
+                    Text(expense.expenseDate.formatted(
+                        Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale)
+                    ))
                 }
                 .font(.caption)
                 #if os(iOS)
@@ -92,7 +95,7 @@ struct ExpenseRow: View {
     }
 
     private var paidByDescription: String {
-        let names = expense.paidFor.map(\.participant.name).formatted(.list(type: .and))
+        let names = expense.paidFor.map(\.participant.name).formatted(.list(type: .and).locale(locale))
         return String(localized: "Paid by \(expense.paidBy.name) for \(names)")
     }
 }
