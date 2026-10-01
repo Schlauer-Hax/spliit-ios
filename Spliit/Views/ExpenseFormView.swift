@@ -165,7 +165,10 @@ struct ExpenseFormView: View {
                             "0\(decimalSeparator)00",
                             text: form.amountText
                         )
-                        .keyboardType(.decimalPad)
+                        .modifier(CalculatingAmountInput(
+                            text: form.amountText,
+                            minorUnitDigits: form.wrappedValue.minorUnitDigits
+                        ))
                         .multilineTextAlignment(.trailing)
                         .moneyInput()
                         .accessibilityIdentifier(AccessibilityID.ExpenseForm.amountField)
@@ -270,7 +273,10 @@ struct ExpenseFormView: View {
                                 "0\(decimalSeparator)00",
                                 text: form.originalAmountText
                             )
-                            .keyboardType(.decimalPad)
+                            .modifier(CalculatingAmountInput(
+                                text: form.originalAmountText,
+                                minorUnitDigits: form.wrappedValue.originalMinorUnitDigits
+                            ))
                             .multilineTextAlignment(.trailing)
                             .moneyInput()
                             .accessibilityIdentifier(
@@ -490,7 +496,10 @@ struct ExpenseFormView: View {
             if splitMode != .evenly {
                 HStack(spacing: 4) {
                     TextField("0", text: participant.valueText)
-                        .keyboardType(.decimalPad)
+                        .modifier(CalculatingAmountInput(
+                            text: participant.valueText,
+                            minorUnitDigits: splitMode == .byAmount ? formatter.minorUnitDigits : 2
+                        ))
                         .multilineTextAlignment(.trailing)
                         .moneyInput()
                         .frame(maxWidth: shareFieldWidth)
@@ -790,6 +799,29 @@ struct ExpenseFormView: View {
                 failure = error.localizedDescription
             }
         }
+    }
+}
+
+private struct CalculatingAmountInput: ViewModifier {
+    @Binding var text: String
+    var minorUnitDigits: Int
+    @Environment(\.locale) private var locale
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .keyboardType(.numbersAndPunctuation)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .focused($isFocused)
+            .onSubmit { isFocused = false }
+            .onChange(of: isFocused) { _, focused in
+                if !focused, let result = MoneyFormatter.calculatedText(
+                    from: text, locale: locale, minorUnitDigits: minorUnitDigits
+                ) {
+                    text = result
+                }
+            }
     }
 }
 
