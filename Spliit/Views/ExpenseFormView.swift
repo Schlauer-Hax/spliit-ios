@@ -310,6 +310,31 @@ struct ExpenseFormView: View {
                 problem(for: [.payerMissing])
 
                 if !categories.isEmpty {
+                    #if os(Android)
+                    // Skip's grouped Picker passes section-name tags into the numeric selection.
+                    LabeledContent("Category") {
+                        Menu {
+                            ForEach(ExpenseCategory.grouped(categories), id: \.name) { grouping in
+                                Section(grouping.name) {
+                                    ForEach(grouping.categories) { category in
+                                        Button {
+                                            chosenCategory(form).wrappedValue = category.id
+                                        } label: {
+                                            if category.id == form.wrappedValue.categoryID {
+                                                Label(category.displayName, systemImage: "checkmark")
+                                            } else {
+                                                Text(category.displayName)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(categories.first { $0.id == form.wrappedValue.categoryID }?.displayName ?? "")
+                        }
+                        .accessibilityIdentifier(AccessibilityID.ExpenseForm.categoryPicker)
+                    }
+                    #else
                     Picker("Category", selection: chosenCategory(form)) {
                         ForEach(ExpenseCategory.grouped(categories), id: \.name) { grouping in
                             Section(grouping.name) {
@@ -320,6 +345,7 @@ struct ExpenseFormView: View {
                         }
                     }
                     .accessibilityIdentifier(AccessibilityID.ExpenseForm.categoryPicker)
+                    #endif
 
                     if categorySuggestion.isShowingSuggestion(in: form.wrappedValue) {
                         Label("Suggested from the title", systemImage: "apple.intelligence")
