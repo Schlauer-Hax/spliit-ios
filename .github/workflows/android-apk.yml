@@ -41,13 +41,14 @@ jobs:
           install-swift-android-sdk: 'true'
           swift-android-sdk-version: '6.4.0'
 
-      - name: Build APK
-        run: make android-app
+      # Uses the existing debug-key fallback; this is an optimized test build.
+      - name: Build release APK
+        run: make android-app-release
 
-      - name: Upload APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: spliit-arm64-debug
-          path: .build/Android/app/outputs/apk/debug/app-debug.apk
+          name: spliit-arm64-release
+          path: .build/Android/app/outputs/apk/release/app-release.apk
           include-hidden-files: true
           if-no-files-found: error

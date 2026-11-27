@@ -59,7 +59,7 @@ ASC_KEY_ID    ?= 3NJ328MR4F
 ASC_ISSUER_ID ?=
 
 .DEFAULT_GOAL := help
-.PHONY: help setup generate build build-device device strings test test-live android-build android-test android-app e2e e2e-up e2e-down e2e-seed fixtures screenshots frames run shot sim sim-clean clean lint archive ipa testflight
+.PHONY: help setup generate build build-device device strings test test-live android-build android-test android-app android-app-release e2e e2e-up e2e-down e2e-seed fixtures screenshots frames run shot sim sim-clean clean lint archive ipa testflight
 
 help:
 	@grep -E '^[a-z0-9-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -118,6 +118,9 @@ test: ## Run the unit suites on the host (no simulator)
 
 android-app: ## Build the ARM64 Android debug APK (requires Skip, Gradle 9.4.1 and JDK 21)
 	@SKIP_EXPORT_ARCHS=aarch64 gradle -p Android :app:assembleDebug
+
+android-app-release: ## Build the ARM64 Android release APK (debug-signed unless a release keystore is configured)
+	@SKIP_EXPORT_ARCHS=aarch64 gradle -p Android :app:assembleRelease
 
 android-build: ## Build SpliitKit for Android (requires Skip and the Swift Android SDK)
 	@cd Packages/SpliitKit && skip android build

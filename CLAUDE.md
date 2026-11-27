@@ -433,6 +433,11 @@ of their clones is what has to fit on the machine.
 that are not drafts**, because it takes 10–20 minutes; marking a PR ready for review triggers
 it. `upstream-drift` runs nightly against the latest Spliit server to catch API changes.
 
+The Android APK workflow runs on pushes to `skip-integration-plan` and uploads only the ARM64
+release APK. Run `make android-app-release` locally for the optimized release
+build. CI uses the existing debug signing fallback, so its release APK is for testing,
+not store distribution. The artifact is named `spliit-arm64-release`.
+
 GitHub's macOS runners cannot run Docker — they are VMs and cannot nest virtualization — so CI
 runs Postgres from Homebrew and the Spliit server from source in dev mode. Docker stays the
 local path.
