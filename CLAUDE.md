@@ -434,9 +434,11 @@ that are not drafts**, because it takes 10–20 minutes; marking a PR ready for 
 it. `upstream-drift` runs nightly against the latest Spliit server to catch API changes.
 
 The Android APK workflow runs on pushes to `skip-integration-plan` and uploads only the ARM64
-release APK. Run `make android-app-release` locally for the optimized release
-build. CI uses the existing debug signing fallback, so its release APK is for testing,
-not store distribution. The artifact is named `spliit-arm64-release`.
+release APK, signed with a dedicated persistent key (alias `spliit`). The repository secrets
+`ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD` supply the keystore and its password;
+CI fails if either is missing. Preserve this key so future APKs can update existing installs.
+The artifact is named `spliit-arm64-release`. `make android-app-release` builds locally,
+using `Android/app/keystore.properties` when configured and debug signing otherwise.
 
 GitHub's macOS runners cannot run Docker — they are VMs and cannot nest virtualization — so CI
 runs Postgres from Homebrew and the Spliit server from source in dev mode. Docker stays the

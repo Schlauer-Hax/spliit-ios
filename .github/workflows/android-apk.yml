@@ -18,6 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo '::error::ANDROID_KEYSTORE_BASE64 is missing'; exit 1; }
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/spliit-release.keystore"
+
       - name: Select Xcode
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
@@ -41,9 +49,16 @@ jobs:
           install-swift-android-sdk: 'true'
           swift-android-sdk-version: '6.4.0'
 
-      # Uses the existing debug-key fallback; this is an optimized test build.
       - name: Build release APK
-        run: make android-app-release
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo '::error::ANDROID_KEYSTORE_PASSWORD is missing'; exit 1; }
+          SKIP_EXPORT_ARCHS=aarch64 gradle -p Android :app:assembleRelease \
+            "-Pandroid.injected.signing.store.file=$RUNNER_TEMP/spliit-release.keystore" \
+            "-Pandroid.injected.signing.store.password=$ANDROID_KEYSTORE_PASSWORD" \
+            '-Pandroid.injected.signing.key.alias=spliit' \
+            "-Pandroid.injected.signing.key.password=$ANDROID_KEYSTORE_PASSWORD"
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
