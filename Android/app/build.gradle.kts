@@ -62,27 +62,22 @@ android {
     // see: https://skip.dev/docs/deployment/#export-signing
     signingConfigs {
         val keystorePropertiesFile = file("keystore.properties")
-        create("release") {
-            if (keystorePropertiesFile.isFile) {
+        if (keystorePropertiesFile.isFile) {
+            create("release") {
                 val keystoreProperties = Properties()
                 keystoreProperties.load(keystorePropertiesFile.inputStream())
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
                 storePassword = keystoreProperties.getProperty("storePassword")
-            } else {
-                // when there is no keystore.properties file, fall back to signing with debug config
-                keyAlias = signingConfigs.getByName("debug").keyAlias
-                keyPassword = signingConfigs.getByName("debug").keyPassword
-                storeFile = signingConfigs.getByName("debug").storeFile
-                storePassword = signingConfigs.getByName("debug").storePassword
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
+            // Use the debug config itself so Gradle creates its keystore on fresh machines.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false // can be set to true for debugging release build, but needs to be false when uploading to store
